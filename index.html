@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Minecraft リソースパック情報入力</title>
+</head>
+<body>
+    <h1>Minecraft リソースパック情報入力</h1>
+    <form id="resourcePackForm">
+        <label for="parent">parent:</label>
+        <input type="text" id="parent" required value="handheld_rod" placeholder="例: handheld_rod">
+        <small>※JSON ファイル生成時に自動的に "minecraft:item/" が付加されます。</small>
+        <br>
+
+        <label for="layer0_texture">layer0_texture (ファイル名に使用):</label>
+        <input type="text" id="layer0_texture" required>
+        <small>※JSON ファイル生成時に自動的に "minecraft:item/" が付加されます。</small>
+        <br>
+
+        <hr>
+
+        <div id="overrides-container">
+            <div class="override">
+                <label for="custom_model_data">custom_model_data (0またはマイナスの値は不可):</label>
+                <input type="number" class="custom_model_data" required value="1"><br>
+
+                <label for="model">model (適応する画像ファイル):</label>
+                <input type="text" class="model" required>
+                <small>※JSON ファイル生成時に自動的に "minecraft:item/" が付加されます。</small>
+                <br>
+
+                <hr>
+            </div>
+        </div>
+
+        <button type="button" onclick="addOverride()">追加</button>
+        <button type="button" onclick="undoOverride()">元に戻す</button>
+
+        <button type="button" onclick="generateAndDownload()">JSON ファイル生成</button>
+    </form>
+
+    <script>
+        function addOverride() {
+            const container = document.getElementById('overrides-container');
+            const overrideDiv = document.createElement('div');
+            overrideDiv.classList.add('override');
+
+            const customModelDataLabel = document.createElement('label');
+            customModelDataLabel.textContent = 'custom_model_data (0またはマイナスの値は不可):';
+            const customModelDataInput = document.createElement('input');
+            customModelDataInput.type = 'number';
+            customModelDataInput.classList.add('custom_model_data');
+            customModelDataInput.required = true;
+            customModelDataInput.value = '1';
+
+            const modelLabel = document.createElement('label');
+            modelLabel.textContent = 'model (適応する画像ファイル):';
+            const modelInput = document.createElement('input');
+            modelInput.type = 'text';
+            modelInput.classList.add('model');
+            modelInput.required = true;
+
+            const smallDescription = document.createElement('small');
+            smallDescription.innerHTML = '※JSON ファイル生成時に自動的に "minecraft:item/" が付加されます。';
+
+            const hr = document.createElement('hr');
+
+            overrideDiv.appendChild(customModelDataLabel);
+            overrideDiv.appendChild(customModelDataInput);
+            overrideDiv.appendChild(document.createElement('br'));
+            overrideDiv.appendChild(modelLabel);
+            overrideDiv.appendChild(modelInput);
+            overrideDiv.appendChild(document.createElement('br'));
+            overrideDiv.appendChild(smallDescription);
+            overrideDiv.appendChild(hr);
+
+            container.appendChild(overrideDiv);
+        }
+
+        function undoOverride() {
+            const container = document.getElementById('overrides-container');
+            const overrides = container.getElementsByClassName('override');
+            
+            // 最後の要素を削除
+            if (overrides.length > 0) {
+                container.removeChild(overrides[overrides.length - 1]);
+            }
+        }
+
+        function generateAndDownload() {
+            const parent = document.getElementById('parent').value;
+            const layer0_texture = document.getElementById('layer0_texture').value;
+
+            const overrides = [];
+            const overrideElements = document.getElementsByClassName('override');
+            for (const overrideElement of overrideElements) {
+                const customModelData = overrideElement.querySelector('.custom_model_data').value;
+                const model = overrideElement.querySelector('.model').value;
+
+                overrides.push({
+                    "predicate": {"custom_model_data": parseInt(customModelData)},
+                    "model": "minecraft:item/" + model
+                });
+            }
+
+            const jsonContent = {
+                "parent": "minecraft:item/" + parent,
+                "textures": {
+                    "layer0": "minecraft:item/" + layer0_texture
+                },
+                "overrides": overrides
+            };
+
+            const jsonString = JSON.stringify(jsonContent, null, 2);
+            const blob = new Blob([jsonString], {type: 'application/json'});
+            const fileName = layer0_texture + '.json';
+
+            if (window.navigator.msSaveOrOpenBlob) {
+                window.navigator.msSaveBlob(blob, fileName);
+            } else {
+                const a = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }
+        }
+    </script>
+</body>
+</html>
