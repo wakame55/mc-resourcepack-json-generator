@@ -23,7 +23,7 @@
             position: fixed; /* 修正: fixed に変更 */
             bottom: 0;
             right: 0;
-            max-height: 70vh;
+            max-height: 80vh;
             overflow-y: auto;
         }
     </style>
@@ -123,6 +123,9 @@
 
             // JSON プレビューも更新
             updateJsonPreview();
+        
+                // 新しいコード: 1000ミリ秒 (1秒) ごとに updateJsonPreview を呼び出す
+                setInterval(updateJsonPreview, 1000);
         }
 
         // 新しい関数: JSON データから親の値を取得
@@ -274,6 +277,17 @@
         // コード中の generateAndDownload 関数内の最後に以下を追加
         const jsonForm = document.getElementById('resourcePackForm');
         jsonForm.addEventListener('input', updateJsonPreview);
+
+        // 新しい関数: 追加ボタンがクリックされたときに呼び出される
+        function onAddButtonClick() {
+            // 追加ボタンのクリック処理
+            addOverride();
+
+            // JSON プレビューを更新
+            updateJsonPreview();
+        }
+
+        
     </script>
 </body>
 </html>
