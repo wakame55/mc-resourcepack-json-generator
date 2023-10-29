@@ -3,10 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <title>Minecraft リソースパック情報入力</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        #content {
+            display: flex;
+            justify-content: space-between;
+        }
+        #resourcePackForm {
+            flex: 1;
+            margin-right: 20px;
+        }
+        #jsonPreview {
+            flex: 1;
+            white-space: pre-wrap;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            position: fixed; /* 修正: fixed に変更 */
+            bottom: 0;
+            right: 0;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+    </style>
 </head>
 <body>
     <h1>Minecraft リソースパック情報入力</h1>
-    <form id="resourcePackForm">
+    <div id="content">
+        <form id="resourcePackForm">
+
         <label for="parent">parent:</label>
         <input type="text" id="parent" required value="handheld_rod" placeholder="例: handheld_rod">
         <small>※JSON ファイル生成時に自動的に "minecraft:item/" が付加されます。</small>
@@ -18,28 +44,108 @@
         <br>
 
         <hr>
+<!-- ファイルアップロード用の入力欄を追加 -->
+            <label for="jsonFile">JSON ファイルアップロード:</label>
+            <input type="file" id="jsonFile" accept=".json" onchange="loadUploadedFile()">
+            <br>
+        </form>
+        <div id="jsonPreview" style="flex: 1; white-space: pre-wrap;"></div>
+    </div>
 
         <div id="overrides-container">
             <div class="override">
                 <label for="custom_model_data">custom_model_data (0またはマイナスの値は不可):</label>
-                <input type="number" class="custom_model_data" required value="1"><br>
+                <input type="number" class="custom_model_data" required min="1" value="0"><br>
 
                 <label for="model">model (適応する画像ファイル):</label>
                 <input type="text" class="model" required>
                 <small>※JSON ファイル生成時に自動的に "minecraft:item/" が付加されます。</small>
                 <br>
 
+                <button type="button" onclick="removeOverride(this)">削除</button>
                 <hr>
             </div>
         </div>
 
         <button type="button" onclick="addOverride()">追加</button>
-        <button type="button" onclick="undoOverride()">元に戻す</button>
 
         <button type="button" onclick="generateAndDownload()">JSON ファイル生成</button>
     </form>
+    <div id="jsonPreview" style="flex: 1; white-space: pre-wrap;"></div>
+</div>
 
     <script>
+         // 新しい関数: アップロードされた JSON ファイルを読み込む
+         function loadUploadedFile() {
+            const fileInput = document.getElementById('jsonFile');
+            const file = fileInput.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const content = e.target.result;
+                    try {
+                        const jsonData = JSON.parse(content);
+                        updateFormWithJson(jsonData);
+                    } catch (error) {
+                        alert('JSON ファイルの読み込みに失敗しました。有効な JSON ファイルを選択してください。');
+                        console.error(error);
+                    }
+                };
+
+                reader.readAsText(file);
+            }
+        }
+
+        // 新しい関数: JSON データをフォームに適用する
+        function updateFormWithJson(jsonData) {
+            // 必要な要素を取得
+            const parentInput = document.getElementById('parent');
+            const layer0TextureInput = document.getElementById('layer0_texture');
+            const customModelDataInputs = document.getElementsByClassName('custom_model_data');
+            const modelInputs = document.getElementsByClassName('model');
+
+            // JSON データをフォームに適用
+            parentInput.value = getParentFromJson(jsonData);
+            layer0TextureInput.value = getLayer0TextureFromJson(jsonData);
+
+            // 以前のオーバーライドをクリア
+            clearOverrides();
+
+            // JSON データのオーバーライドをフォームに適用
+            for (let i = 0; i < jsonData.overrides.length; i++) {
+                const override = jsonData.overrides[i];
+                addOverride();
+                customModelDataInputs[i].value = override.predicate.custom_model_data;
+                modelInputs[i].value = getModelFromJson(override);
+            }
+
+            // JSON プレビューも更新
+            updateJsonPreview();
+        }
+
+        // 新しい関数: JSON データから親の値を取得
+        function getParentFromJson(jsonData) {
+            return jsonData.parent.replace('minecraft:item/', '');
+        }
+
+        // 新しい関数: JSON データから layer0 のテクスチャ名を取得
+        function getLayer0TextureFromJson(jsonData) {
+            return jsonData.textures.layer0.replace('minecraft:item/', '');
+        }
+
+        // 新しい関数: JSON データからモデルの値を取得
+        function getModelFromJson(override) {
+            return override.model.replace('minecraft:item/', '');
+        }
+
+        // 新しい関数: 以前のオーバーライドをクリア
+        function clearOverrides() {
+            const container = document.getElementById('overrides-container');
+            container.innerHTML = '';
+        }
+
         function addOverride() {
             const container = document.getElementById('overrides-container');
             const overrideDiv = document.createElement('div');
@@ -51,7 +157,7 @@
             customModelDataInput.type = 'number';
             customModelDataInput.classList.add('custom_model_data');
             customModelDataInput.required = true;
-            customModelDataInput.value = '1';
+            customModelDataInput.min = '1';
 
             const modelLabel = document.createElement('label');
             modelLabel.textContent = 'model (適応する画像ファイル):';
@@ -74,60 +180,100 @@
             overrideDiv.appendChild(smallDescription);
             overrideDiv.appendChild(hr);
 
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.textContent = '削除';
+            removeButton.onclick = function () {
+                removeOverride(this);
+            };
+
+            overrideDiv.appendChild(removeButton);
             container.appendChild(overrideDiv);
         }
 
-        function undoOverride() {
+        function removeOverride(button) {
             const container = document.getElementById('overrides-container');
-            const overrides = container.getElementsByClassName('override');
-            
-            // 最後の要素を削除
-            if (overrides.length > 0) {
-                container.removeChild(overrides[overrides.length - 1]);
-            }
+            const overrideDiv = button.parentNode;
+            container.removeChild(overrideDiv);
         }
 
         function generateAndDownload() {
             const parent = document.getElementById('parent').value;
-            const layer0_texture = document.getElementById('layer0_texture').value;
+            const layer0Texture = document.getElementById('layer0_texture').value;
 
-            const overrides = [];
-            const overrideElements = document.getElementsByClassName('override');
-            for (const overrideElement of overrideElements) {
-                const customModelData = overrideElement.querySelector('.custom_model_data').value;
-                const model = overrideElement.querySelector('.model').value;
+            const customModelDataInputs = document.getElementsByClassName('custom_model_data');
+            const modelInputs = document.getElementsByClassName('model');
 
-                overrides.push({
-                    "predicate": {"custom_model_data": parseInt(customModelData)},
-                    "model": "minecraft:item/" + model
-                });
-            }
+            const filename = layer0Texture + '.json';
 
-            const jsonContent = {
-                "parent": "minecraft:item/" + parent,
-                "textures": {
-                    "layer0": "minecraft:item/" + layer0_texture
+            const jsonData = {
+                parent: 'minecraft:item/' + parent,
+                textures: {
+                    layer0: 'minecraft:item/' + layer0Texture
                 },
-                "overrides": overrides
+                overrides: []
             };
 
-            const jsonString = JSON.stringify(jsonContent, null, 2);
-            const blob = new Blob([jsonString], {type: 'application/json'});
-            const fileName = layer0_texture + '.json';
+            for (let i = 0; i < customModelDataInputs.length; i++) {
+                const customModelData = customModelDataInputs[i].value;
+                const model = modelInputs[i].value;
 
-            if (window.navigator.msSaveOrOpenBlob) {
-                window.navigator.msSaveBlob(blob, fileName);
-            } else {
-                const a = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                a.href = url;
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
+                if (customModelData && model) {
+                    jsonData.overrides.push({
+                        predicate: {
+                            custom_model_data: parseInt(customModelData)
+                        },
+                        model: 'minecraft:item/' + model
+                    });
+                }
             }
+
+            const jsonDataString = JSON.stringify(jsonData, null, 2);
+            const blob = new Blob([jsonDataString], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
+
+        function updateJsonPreview() {
+            const parent = document.getElementById('parent').value;
+            const layer0Texture = document.getElementById('layer0_texture').value;
+
+            const customModelDataInputs = document.getElementsByClassName('custom_model_data');
+            const modelInputs = document.getElementsByClassName('model');
+
+            const jsonData = {
+                parent: 'minecraft:item/' + parent,
+                textures: {
+                    layer0: 'minecraft:item/' + layer0Texture
+                },
+                overrides: []
+            };
+
+            for (let i = 0; i < customModelDataInputs.length; i++) {
+                const customModelData = customModelDataInputs[i].value;
+                const model = modelInputs[i].value;
+
+                if (customModelData && model) {
+                    jsonData.overrides.push({
+                        predicate: {
+                            custom_model_data: parseInt(customModelData)
+                        },
+                        model: 'minecraft:item/' + model
+                    });
+                }
+            }
+
+            const jsonDataString = JSON.stringify(jsonData, null, 2);
+            document.getElementById('jsonPreview').textContent = jsonDataString;
+        }
+
+        // コード中の generateAndDownload 関数内の最後に以下を追加
+        const jsonForm = document.getElementById('resourcePackForm');
+        jsonForm.addEventListener('input', updateJsonPreview);
     </script>
 </body>
 </html>
